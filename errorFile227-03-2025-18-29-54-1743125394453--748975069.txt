@@ -1,0 +1,15 @@
+Traceback (most recent call last):
+  File "/Users/james/Desktop/C1GamesStarterKit-master/python-algo/algo_strategy.py", line 6, in <module>
+    import torch
+  File "/Users/james/Desktop/C1GamesStarterKit-master/venv/lib/python3.10/site-packages/torch/__init__.py", line 2222, in <module>
+    from torch import quantization as quantization  # usort: skip
+  File "/Users/james/Desktop/C1GamesStarterKit-master/venv/lib/python3.10/site-packages/torch/quantization/__init__.py", line 9, in <module>
+    from .quantize import *  # noqa: F403
+  File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 879, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 969, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1091, in path_stats
+  File "<frozen importlib._bootstrap_external>", line 147, in _path_stat
+KeyboardInterrupt

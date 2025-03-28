@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/Users/james/Desktop/C1GamesStarterKit-master/python-algo/algo_strategy.py", line 6, in <module>
+    import torch
+  File "/Users/james/Desktop/C1GamesStarterKit-master/venv/lib/python3.10/site-packages/torch/__init__.py", line 405, in <module>
+    from torch._C import *  # noqa: F403
+  File "<frozen importlib._bootstrap>", line 216, in _lock_unlock_module
+KeyboardInterrupt

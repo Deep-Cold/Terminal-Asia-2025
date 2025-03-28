@@ -27,25 +27,24 @@ class TerminalEnv:
         self.state_dim = 10
         self.action_space = [0, 1, 2]  # e.g., 0: stall, 1: demolisher, 2: scout
 
-    def run_single_game(self, action):
+    def run_single_game(self, process_command):
         """
         Runs one match using the Terminal engine.
         The chosen action is passed to the engine as an extra parameter.
         (Ensure your engine/run files are set up to accept this parameter.)
         """
-        print("Start running a match with action:", action)
-        # Use the absolute path to engine.jar from the "scripts" folder.
-        engine_jar = os.path.join(self.project_root, 'engine.jar')
-        
-        # Build the command using the absolute path.
-        # Note: We now use "python_algo" (underscore) in the path.
-        cmd = f'java -jar "{engine_jar}" work {self.algo1} {self.algo2} {action}'
-        print("Executing command:", cmd)  # Debug output
-        
-        p = subprocess.Popen(cmd, shell=True, stdout=sys.stdout, stderr=sys.stderr)
+        print("Start run a match")
+        p = subprocess.Popen(
+            process_command,
+            shell=True,
+            stdout=sys.stdout,
+            stderr=sys.stderr
+            )
+        # daemon necessary so game shuts down if this script is shut down by user
         p.daemon = 1
         p.wait()
         print("Finished running match")
+
 
     def reset(self):
         """
@@ -70,30 +69,47 @@ class TerminalEnv:
                  info: Extra information (e.g., replay path)
         """
         # Run the match with the chosen action.
-        self.run_single_game(action)
+        self.run_single_game(f"cd {self.project_root} && java -jar engine.jar work {self.algo1} {self.algo2}")
 
         # Look for the newest replay file in project_root/replays.
+        
+
         replay_path = os.path.join(self.project_root, self.replay_dir)
+        print(replay_path)
         replay_files = glob.glob(os.path.join(replay_path, "*.replay"))
+        print(replay_files)
         if not replay_files:
             print("No replay files found. Something went wrong.")
             return None, 0, True, {}
 
         newest_replay = max(replay_files, key=os.path.getctime)
 
-        # Parse the final frame from the replay.
-        with open(newest_replay, "r") as f:
-            replay_json = json.load(f)
+        import json
 
-        final_frame = replay_json["frames"][-1]
-        # For example, assume final health is stored in p1Stats[0] and p2Stats[0].
-        p1_health = final_frame["p1Stats"][0]
-        p2_health = final_frame["p2Stats"][0]
+        json_objects = []
+        with open(newest_replay, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line:  # Skip empty lines
+                    try:
+                        obj = json.loads(line)
+                        json_objects.append(obj)
+                    except json.JSONDecodeError as e:
+                        print("Error decoding line:", line, e)
 
-        # Compute reward. (Adjust this function as needed.)
-        reward = p1_health - p2_health
+        # Now, if one of these objects contains the key "endStats", extract points:
+        for obj in json_objects:
+            if 'endStats' in obj:
+                player1_points = obj["endStats"]["player1"]["points_scored"]
+                player2_points = obj["endStats"]["player2"]["points_scored"]
+                print("Player 1 points_scored:", player1_points)
+                print("Player 2 points_scored:", player2_points)
+
+
+            # Compute reward. (Adjust this function as needed.)
+        reward = player1_points - player2_points
 
         done = True
-        observation = [0.0] * self.state_dim  # Dummy observation.
+        observation = [0.0] * self.state_dim
         info = {"replay_path": newest_replay}
         return observation, reward, done, info
