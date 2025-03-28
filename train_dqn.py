@@ -7,10 +7,7 @@ import random
 import math
 
 # --- Setup paths ---
-# Set the project root: Assuming train_dqn.py is in python_algo,
-# the project root is one level up.
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-# Define the algo run file path using the correct folder name ("python_algo").
 algo_path = os.path.join(project_root, "python-algo", "run.sh")
 
 # --- Initialize the Environment ---
@@ -18,8 +15,8 @@ env = TerminalEnv(project_root, algo_path, algo_path)
 
 # --- Initialize DQN Agent ---
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-input_dim = env.state_dim  # e.g., 10
-output_dim = len(env.action_space)  # e.g., 3
+input_dim = env.state_dim 
+output_dim = len(env.action_space) 
 
 agent = DQNAgent(input_dim, output_dim, device)
 
