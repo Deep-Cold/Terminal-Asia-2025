@@ -1,0 +1,12 @@
+Random seed: 2838680634584780277
+DDPG model not found or failed to load. Using default strategy. Error: Error(s) in loading state_dict for Actor:
+	size mismatch for fc1.weight: copying a param with shape torch.Size([128, 2]) from checkpoint, the shape in current model is torch.Size([128, 10]).
+---------------- Starting Your Algo --------------------
+Traceback (most recent call last):
+  File "/Users/james/Desktop/C1GamesStarterKit-master/python-algo/algo_strategy_ddpg.py", line 243, in <module>
+    algo.start()
+  File "/Users/james/Desktop/C1GamesStarterKit-master/python-algo/gamelib/algocore.py", line 59, in start
+    game_state_string = get_command()
+  File "/Users/james/Desktop/C1GamesStarterKit-master/python-algo/gamelib/util.py", line 12, in get_command
+    ret = sys.stdin.readline()
+KeyboardInterrupt
