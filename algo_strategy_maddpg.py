@@ -151,7 +151,6 @@ class AlgoStrategy(gamelib.AlgoCore):
         gamelib.debug_write("DDPG selected action: {}".format(attack_action_values, turret_action_values, wall_booster_action_values))
 
         # --- Attack Mapping ---
-
         attack_regions = [[(3, 10), (4, 9)], 
                           [(5, 8), (6, 7)], 
                           [(7, 6), (8, 5)], 
@@ -165,27 +164,27 @@ class AlgoStrategy(gamelib.AlgoCore):
                           [(23, 10), (24, 11)], 
                           [(25, 12), (26, 13)]]
 
-        # Component 0: First Attack Region
+        for i in range(10):
+            attack_action_values[i] = max(min(attack_action_values[i], 1), 0)
+            attack_unit_type = min(int(attack_action_values[i] * 4), 3)
+            if attack_unit_type == 0:
+                unit_attack = SCOUT
+            elif attack_unit_type == 1:
+                unit_attack = DEMOLISHER
+            else:
+                unit_attack = INTERCEPTOR
+            attack_region = attack_regions[i]
+            ax, ay = random.choice(attack_region)
+            
+            gamelib.debug_write("Spawning attack unit {} at [{},{}]".format(unit_attack, ax, ay))
+            game_state.attempt_spawn(unit_attack, [ax, ay])
+
+
+        # --- Turret Mapping ---
+        turret_regions = [[],[]]
 
 
 
-
-        # Component 0: Attack unit type.
-        attack_unit_type = int(round(((action_values[0] + 1) / 2) * 2))
-        attack_unit_type = max(0, min(2, attack_unit_type))
-        
-        # Component 1: Attack location index in [0,27].
-        attack_index = int(round(((action_values[1] + 1) / 2) * 27))
-        attack_index = max(0, min(27, attack_index))
-        # Map the index to a spawn coordinate:
-        if attack_index <= 13:
-            ax = attack_index
-            ay = 13 - attack_index
-        else:
-            ax = attack_index
-            ay = attack_index - 14
-        
-        # --- Defence Mapping ---
         # Component 2: Defence unit type.
         defence_unit_type = int(round(((action_values[2] + 1) / 2) * 2))
         defence_unit_type = max(0, min(2, defence_unit_type))
