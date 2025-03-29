@@ -109,7 +109,7 @@ class DDPG:
         if explore:
             action = gumbel_sigmoid(action)
         else:
-            action = gumbel_sigmoid(action,hard = True)
+            action = gumbel_sigmoid(action)
         return action.detach().cpu().numpy()[0]
 
     def soft_update(self, net, target_net, tau):
@@ -159,7 +159,7 @@ class MADDPG:
         #all target act has N tensors. where N is the number of agent.
         #Each gubel_sigmid will simple out a tensor that the size is [batch_size, action_dimention]
         all_target_act = [
-            gumbel_sigmoid(pi(_next_obs),1.0,True)
+            gumbel_sigmoid(pi(_next_obs))
             for pi, _next_obs in zip(self.target_policies, next_obs)
         ]
         #target_critic_input 拼接后的形状为[batch_size, action_dim+state_dim]
@@ -180,7 +180,7 @@ class MADDPG:
             if i == i_agent:
                 all_actor_acs.append(cur_act_vf_in)
             else:
-                all_actor_acs.append(gumbel_sigmoid(pi(_obs),1.0,True))
+                all_actor_acs.append(gumbel_sigmoid(pi(_obs)))
         vf_in = torch.cat((*obs, *all_actor_acs), dim=1)
         actor_loss = -cur_agent.critic(vf_in).mean()
         actor_loss += (cur_actor_out**2).mean() * 1e-3
