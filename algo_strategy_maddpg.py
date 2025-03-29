@@ -214,6 +214,8 @@ class AlgoStrategy(gamelib.AlgoCore):
         
         total_value = 0
 
+        SP_this_tern = game_state.get_resource(SP)
+
         for i in range(8):
             index = i * 2
             turret_action_values[index] = max(min(turret_action_values[index], 1), 0)
