@@ -193,7 +193,65 @@ class AlgoStrategy(gamelib.AlgoCore):
 
 
         # --- Turret Mapping ---
-        turret_regions = [[],[]]
+                # --- Turret Mapping ---
+        turret_regions = [[(1, 12), (2, 12), (3, 12), (4, 12), (2, 11), (3, 11), (4, 11)],
+                          [(5, 10), (6, 10), (7, 10), (6, 9), (7, 9), (7, 8)],
+                          [(8, 7), (9, 7), (10, 7), (9, 6), (10, 6), (10, 5)],
+                          [(11, 4), (12, 4), (13, 4), (12, 3), (13, 3), (13, 2)],
+                          [(14, 4), (15, 4), (16, 4), (14, 3), (15, 3), (14, 2)],
+                          [(17, 7), (18, 7), (19, 7), (17, 6), (18, 6), (17, 5)],
+                          [(20, 10), (21, 10), (22, 10), (20, 9), (21, 9), (20, 8)],
+                          [(23, 12), (24, 12), (25, 12), (26, 12), (23, 11), (24, 11), (25, 11)]]
+        
+        wall_regions = [[(0, 13), (1, 13), (2, 13), (3, 13), (4, 13)],
+                        [(5, 12), (5, 11), (6, 11), (7, 11)],
+                        [(8, 10), (8, 9), (8, 8), (9, 8), (10, 8)],
+                        [(11, 7), (11, 6), (11, 5), (12, 5), (13, 5)],
+                        [(14, 5), (15, 5), (16, 5), (16, 6), (16, 7)],
+                        [(17, 8), (18, 8), (19, 8), (19, 9), (19, 10)],
+                        [(20, 11), (21, 11), (22, 11), (22, 12)],
+                        [(23, 13), (24, 13), (25, 13), (26, 13), (27, 13)]]
+        
+        total_value = 0
+
+        for i in range(8):
+            index = i * 2
+            turret_action_values[index] = max(min(turret_action_values[index], 1), 0)
+            turret_action_values[index + 1] = max(min(turret_action_values[index + 1]), 0)
+            wall_action_values[index] = max(min(wall_action_values[index], 1), 0)
+            wall_action_values[index + 1] = max(min(wall_action_values[index + 1], 1), 0)
+            total_value += turret_action_values[index] * 4 + turret_action_values[index + 1] * 6
+            total_value += wall_action[index] * 3 + wall_action[index + 1] * 2
+
+        MP_per_unit_cost = SP_this_tern / total_value
+
+        for i in range(8):
+            index = i * 2
+            number_of_units = int((turret_action_values[index] * MP_per_unit_cost))
+            for (ax, ay) in turret_regions[i]:
+                if number_of_units <= 0:
+                    break
+                number_of_units -= game_state.attempt_spawn(TURRET, [ax, ay])
+            
+            number_of_updates = int((turret_action_values[index + 1] * MP_per_unit_cost))
+            for (ax, ay) in turret_regions[i]:
+                if number_of_updates <= 0:
+                    break
+                number_of_updates -= game_state.attempt_upgrade([ax, ay])
+            
+        for i in range(8):
+            index = i * 2
+            number_of_units = int((wall_action_values[index] * MP_per_unit_cost))
+            for (ax, ay) in wall_regions[i]:
+                if number_of_units <= 0:
+                    break
+                number_of_units -= game_state.attempt_spawn(WALL, [ax, ay])
+            
+            number_of_updates = int((wall_action[index + 1] * MP_per_unit_cost))
+            for (ax, ay) in wall_regions[i]:
+                if number_of_updates <= 0:
+                    break
+                number_of_updates -= game_state.attempt_upgrade([ax, ay])
 
 
 
