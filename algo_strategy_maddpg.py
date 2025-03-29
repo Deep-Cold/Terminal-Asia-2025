@@ -148,25 +148,32 @@ class AlgoStrategy(gamelib.AlgoCore):
         attack_action_values = attack_action.squeeze(0).tolist()
         turret_action_values = turret_action.squeeze(0).tolist()
         wall_booster_action_values = wall_booster_action.squeeze(0).tolist()
-        gamelib.debug_write("DDPG selected action: {}".format(attack_action_values, turret_action_values, wall_booster_action_values))
+        gamelib.debug_write("MADDPG selected action: {}".format(attack_action_values, turret_action_values, wall_booster_action_values))
 
         # --- Attack Mapping ---
-        attack_regions = [[(3, 10), (4, 9)], 
-                          [(5, 8), (6, 7)], 
-                          [(7, 6), (8, 5)], 
-                          [(9, 4), (10, 3)], 
-                          [(11, 2), (12, 1)], 
-                          [(13, 0), (14, 1)], 
-                          [(15, 2), (16, 3)], 
-                          [(17, 4), (18, 5)], 
-                          [(19, 6), (20, 7)], 
-                          [(21, 8), (22, 9)], 
-                          [(23, 10), (24, 11)], 
-                          [(25, 12), (26, 13)]]
+        attack_regions = [[(3, 10), (4, 9), (5, 8), (6, 7)], 
+                          [(7, 6), (8, 5), (9, 4)], 
+                          [(10, 3), (11, 2), (12, 1), (13, 0)], 
+                          [(14, 0), (15, 1), (16, 2), (17, 3)], 
+                          [(18, 4), (19, 5), (20, 6)], 
+                          [(21, 7), (22, 8), (23, 9), (24, 10)]]
+        
+        total_unit_number_cost = 0
 
-        for i in range(10):
-            attack_action_values[i] = max(min(attack_action_values[i], 1), 0)
-            attack_unit_type = min(int(attack_action_values[i] * 4), 3)
+        MP_this_turn = game_state.get_resource(MP)
+        
+        for i in range(6):
+            unit_number_index = 2 * i + 1
+            attack_action_values[unit_number_index] = max(min(attack_action_values[unit_number_index], 1), 0)
+            total_unit_number_cost += attack_action_values[unit_number_index]
+        
+        MP_per_unit_cost = MP_this_turn / total_unit_number_cost 
+
+        for i in range(6):
+            unit_type_index = 2 * i
+            unit_number_index = unit_type_index + 1
+            attack_action_values[unit_type_index] = max(min(attack_action_values[unit_type_index], 1), 0)
+            attack_unit_type = min(int(attack_action_values[unit_type_index] * 4), 3)
             if attack_unit_type == 1:
                 unit_attack = SCOUT
             elif attack_unit_type == 2:
@@ -177,9 +184,13 @@ class AlgoStrategy(gamelib.AlgoCore):
                 continue
             attack_region = attack_regions[i]
             ax, ay = random.choice(attack_region)
+
+            attack_action_values[unit_number_index] = max(min(attack_action_values[unit_number_index], 1), 0)
+            number_of_units = int((attack_action_values[unit_number_index] * MP_per_unit_cost) // unit_attack["cost"][1])
             
             gamelib.debug_write("Spawning attack unit {} at [{},{}]".format(unit_attack, ax, ay))
-            game_state.attempt_spawn(unit_attack, [ax, ay])
+            for _ in range(number_of_units):
+                game_state.attempt_spawn(unit_attack, [ax, ay])
 
 
         # --- Turret Mapping ---
