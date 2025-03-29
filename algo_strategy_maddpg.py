@@ -167,12 +167,14 @@ class AlgoStrategy(gamelib.AlgoCore):
         for i in range(10):
             attack_action_values[i] = max(min(attack_action_values[i], 1), 0)
             attack_unit_type = min(int(attack_action_values[i] * 4), 3)
-            if attack_unit_type == 0:
+            if attack_unit_type == 1:
                 unit_attack = SCOUT
-            elif attack_unit_type == 1:
+            elif attack_unit_type == 2:
                 unit_attack = DEMOLISHER
-            else:
+            elif attack_unit_type == 3:
                 unit_attack = INTERCEPTOR
+            else:
+                continue
             attack_region = attack_regions[i]
             ax, ay = random.choice(attack_region)
             
