@@ -50,77 +50,75 @@ class AlgoStrategy(gamelib.AlgoCore):
         SP = 0
         self.scored_on_locations = []
 
+    def get_index_mapping(self):
+        """
+        Builds and returns a mapping array for the diamond-shaped board.
+        Each element in the returned list is a tuple (row, col) corresponding to the
+        cell's location on a 28x28 board that is part of the 420 valid cells (the diamond).
+        
+        Mapping details:
+        - For rows 0 to 13 (upper half):
+        Valid columns run from (13 - row) to (14 + row) inclusive.
+        For example, row 0 has cells at columns 13 and 14.
+            -> mapping[0] = (0, 13)
+            -> mapping[1] = (0, 14)
+        Row 1 has cells at columns 12 to 15, and so on.
+        
+        - For rows 14 to 27 (lower half):
+        Let mirror = row - 14.
+        Valid columns run from mirror to (27 - mirror) inclusive.
+        For example, row 14 (mirror=0) covers columns 0 to 27.
+        
+        The mapping array is ordered row-by-row.
+        """
+        mapping = []
+        for row in range(28):
+            if row <= 13:
+                start_col = 13 - row
+                end_col = 14 + row  # inclusive
+            else:
+                mirror = row - 14
+                start_col = mirror
+                end_col = 27 - mirror  # inclusive
+
+            for col in range(start_col, end_col + 1):
+                mapping.append((row, col))
+                
+        # Ensure that the mapping array has exactly 420 elements.
+        assert len(mapping) == 420, f"Mapping length is {len(mapping)}, but expected 420."
+        return mapping
+
     def get_state_vector(self, game_state):
         """
-        Constructs a live observation vector from the current game state.
-        
-        Features (example):
-          0. Normalized turn number (assuming a max of 100 turns)
-          1. Normalized MP (e.g., MP/10)
-          2. Normalized SP (e.g., SP/10)
-          3. Count of your turrets (normalized by an assumed max, e.g., /10)
-          4. Count of your walls (normalized, e.g., /20)
-          5. Count of enemy turrets in front (y in [14,15]) normalized (/10)
-          6. Count of enemy walls in front (y in [14,15]) normalized (/10)
-          7. Count of enemy supports normalized (/10)
-          8. Count of enemy demolishers normalized (/10)
-          9. Bias term (1.0)
-        Adjust these features and normalization factors as needed.
+        Extracts a state vector from the current game state.
         """
         vector = []
-        # 0. Normalized turn number.
-        vector.append(game_state.turn_number / 100.0)
-        
-        # 1. Normalized MP.
-        mp = game_state.get_resource(MP)
-        vector.append(mp / 10.0)
-        
-        # 2. Normalized SP.
-        sp = game_state.get_resource(SP)
-        vector.append(sp / 10.0)
-        
-        # 3. Count of your turrets.
-        my_turrets = sum(
-            1 for loc in game_state.game_map
-            if game_state.contains_stationary_unit(loc)
-            for unit in game_state.game_map[loc]
-            if unit.player_index == 0 and unit.unit_type == TURRET
-        )
-        vector.append(my_turrets / 10.0)
-        
-        # 4. Count of your walls.
-        my_walls = sum(
-            1 for loc in game_state.game_map
-            if game_state.contains_stationary_unit(loc)
-            for unit in game_state.game_map[loc]
-            if unit.player_index == 0 and unit.unit_type == WALL
-        )
-        vector.append(my_walls / 20.0)
-        
-        # 5. Enemy turret count in front (y in [14,15]).
-        enemy_turrets = self.detect_enemy_unit(game_state, unit_type=TURRET, valid_y=[14, 15])
-        vector.append(enemy_turrets / 10.0)
-        
-        # 6. Enemy wall count in front (y in [14,15]).
-        enemy_walls = sum(
-            1 for loc in game_state.game_map
-            if game_state.contains_stationary_unit(loc)
-            for unit in game_state.game_map[loc]
-            if unit.player_index == 1 and unit.unit_type == WALL and loc[1] in [14, 15]
-        )
-        vector.append(enemy_walls / 10.0)
-        
-        # 7. Enemy supports count.
-        enemy_supports = self.detect_enemy_unit(game_state, unit_type=SUPPORT)
-        vector.append(enemy_supports / 10.0)
-        
-        # 8. Enemy demolishers count.
-        enemy_demolishers = self.detect_enemy_unit(game_state, unit_type=DEMOLISHER)
-        vector.append(enemy_demolishers / 10.0)
-        
-        # 9. Bias term.
-        vector.append(1.0)
-        
+
+        unit_max_health = {WALL: 55, SUPPORT: 10, TURRET:75}
+
+        # return a vector of size 420 + 4
+        mapping = self.get_index_mapping()
+        for i in mapping:
+            unit = game_state.game_map[i]
+            unit_type = unit.unit_type if unit else None
+            health = unit.health if unit else 0
+            if unit_type == SUPPORT:
+                vector.append(health)
+            elif unit_type == TURRET:
+                vector.append(health + unit_max_health[SUPPORT])
+            elif unit_type == WALL:
+                if unit.upgraded:
+                    vector.append(health + unit_max_health[SUPPORT] + unit_max_health[TURRET] + unit_max_health[WALL])
+                else:
+                    vector.append(health + unit_max_health[SUPPORT] + unit_max_health[TURRET])
+            else:
+                vector.append(0)
+            
+        vector.append(game_state.get_resource(MP))
+        vector.append(game_state.get_resource(SP))
+        vector.append(game_state.my_health)
+        vector.append(game_state.enemy_health)
+
         return vector
 
     def on_turn(self, turn_state):
