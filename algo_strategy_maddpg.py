@@ -22,7 +22,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.state_dim = 424
         self.attack_action_dim = 10  # as defined for our DDPG model
         self.turret_action_dim = 6  # as defined for our DDPG model
-        self.wall_booster_action_dim = 13  # as defined for our DDPG model
+        self.wall_action_dim = 13  # as defined for our DDPG model
 
         self.agent = MADDPG(, self.state_dim, self.action_dim, device)
 
@@ -143,11 +143,11 @@ class AlgoStrategy(gamelib.AlgoCore):
         
         # Select a 5-dimensional action.
         with torch.no_grad():
-            attack_action, turret_action, wall_booster_action = self.agent.actor(state_tensor)
+            attack_action, turret_action, wall_action = self.agent.actor(state_tensor)
         attack_action_values = attack_action.squeeze(0).tolist()
         turret_action_values = turret_action.squeeze(0).tolist()
-        wall_booster_action_values = wall_booster_action.squeeze(0).tolist()
-        gamelib.debug_write("MADDPG selected action: {}".format(attack_action_values, turret_action_values, wall_booster_action_values))
+        wall_action_values = wall_action.squeeze(0).tolist()
+        gamelib.debug_write("MADDPG selected action: {}".format(attack_action_values, turret_action_values, wall_action_values))
 
         # --- Attack Mapping ---
         attack_regions = [[(3, 10), (4, 9), (5, 8), (6, 7)], 
