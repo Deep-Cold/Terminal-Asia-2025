@@ -2,100 +2,114 @@
 import os
 import glob
 import json
-import random
-from queue import Queue, Empty
-import threading
 import time
-import numpy as np
 
 class TerminalEnv:
     """
-    A Terminal environment that receives external observation and reward signals via
-    an action file. Each new line in the file corresponds to one turn.
-    
-    This version processes turns in FIFO order and, additionally, writes a file
-    "action_output.txt" that logs the actions passed to step(). Specifically, the
-    first line in action_output.txt is actions[0] and the second is actions[1].
-    
-    Attributes:
-      - state_dim: dimension of each observation vector (default 424)
-      - max_turns: maximum turns per episode
-      - turn: current turn counter
-      - agents: list of agent indices (e.g., [0,1,2])
-      - action_file: path to the file that the game engine/appends turn data
+    A Terminal environment that communicates via three files:
+      - observation.txt: updated externally each turn with a JSON string containing "obs"
+      - action.txt: our step() method appends the agents’ action vectors here (one line per agent)
+      - rewards.txt: updated externally with a JSON string containing "reward" (and optionally "done")
+      
+    The environment maintains pointers to process each new line in FIFO order.
     """
     def __init__(self, project_root, state_dim=424, max_turns=40):
+        self.project_root = project_root
         self.state_dim = state_dim
         self.max_turns = max_turns
-        self.project_root = project_root
-        self.action_file = os.path.join(self.project_root, "action.txt")
-        self.line_idx = 0
         self.agents = [0, 1, 2]
+        self.obs_file = os.path.join(self.project_root, "observation.txt")
+        self.reward_file = os.path.join(self.project_root, "rewards.txt")
+        self.action_file = os.path.join(self.project_root, "action.txt")
+        self.obs_idx = 0
+        self.rew_idx = 0
+        self.action_idx = 0
 
     def reset(self):
         """
-        Resets the environment by deleting the old action file (if any) and resetting the line index.
-        Returns initial observations (here, zero vectors) for each agent.
+        Resets the environment for a new episode.
+        Deletes the existing observation.txt, rewards.txt, and action.txt files (if any)
+        and resets the internal pointers.
+        Returns initial observations (here, placeholder zero vectors) for each agent.
         """
-        if os.path.exists(self.action_file):
-            os.remove(self.action_file)
-        self.line_idx = 0
+        for f in [self.obs_file, self.reward_file, self.action_file]:
+            if os.path.exists(f):
+                os.remove(f)
+        self.obs_idx = 0
+        self.rew_idx = 0
+        self.action_idx = 0
         return [[0.0] * self.state_dim for _ in self.agents]
-    
-    def _wait_for_new_line(self):
+
+    def _wait_for_new_line(self, file_path, current_idx):
         """
-        Blocks until a new line is available in action.txt beyond self.line_idx.
-        Returns that line.
+        Blocks until file_path exists and contains more than current_idx lines.
+        Returns the next unprocessed line.
         """
         while True:
-            if os.path.exists(self.action_file):
-                with open(self.action_file, "r") as f:
+            if os.path.exists(file_path):
+                with open(file_path, "r") as f:
                     lines = f.readlines()
-                if len(lines) > self.line_idx:
-                    line = lines[self.line_idx].strip()
-                    self.line_idx += 1
-                    return line
+                if len(lines) > current_idx:
+                    return lines[current_idx].strip()
             time.sleep(0.1)
-    
+
+    def _get_next_obs_line(self):
+        line = self._wait_for_new_line(self.obs_file, self.obs_idx)
+        self.obs_idx += 1
+        return line
+
+    def _get_next_reward_line(self):
+        line = self._wait_for_new_line(self.reward_file, self.rew_idx)
+        self.rew_idx += 1
+        return line
+
+    def _append_actions(self, actions):
+        """
+        Appends the provided actions to the action.txt file.
+        Each action vector (one per agent) is written on its own line.
+        """
+        with open(self.action_file, "a") as f:
+            for agent_action in actions:
+                f.write(",".join(str(v) for v in agent_action) + "\n")
+        self.action_idx += len(actions)
+
     def step(self, actions):
         """
         Processes one turn.
         
-        It waits for a new line in action.txt (each line should be a JSON string
-        with keys "obs" and "reward"; the final line has "done": true).
-        After reading the line, it writes the actions (a 2D list, one per agent)
-        to a new file "action_output.txt", where line 1 is actions[0] and line 2 is actions[1].
-        
+        Workflow:
+          1. Appends the provided actions (a list of 3 action vectors) to action.txt.
+          2. Waits for a new line in observation.txt, parses it as JSON to obtain the observation.
+          3. Waits for a new line in rewards.txt, parses it as JSON to obtain the reward and done flag.
+          
         Returns:
-          - observations: List of observation vectors (one per agent)
-          - rewards: List of rewards (one per agent)
-          - done: True if the JSON contains "done": true or max_turns reached
-          - info: Dictionary with extra info (e.g. current turn number)
+          - observations: a list of observation vectors (one per agent).
+          - rewards: a list of reward values (one per agent).
+          - done: Boolean flag (from the rewards file or if max_turns reached).
+          - info: A dictionary with extra information (e.g. current turn number).
         """
-
-        # Write a new file "action_output.txt" with the first two agents' actions.
-        output_file = os.path.join(self.project_root, "action_output.txt")
-        try:
-            with open(output_file, "w") as f:
-                if len(actions) >= 2:
-                    f.write(",".join(str(v) for v in actions[0]) + "\n")
-                    f.write(",".join(str(v) for v in actions[1]))
-                else:
-                    f.write("Insufficient actions")
-            print("Wrote action_output.txt")
-        except Exception as e:
-            print("Error writing action_output.txt:", e)
-            
-        # Wait for the next line in action.txt.
-        line = self._wait_for_new_line()
-        try:
-            data = json.loads(line)
-        except Exception as e:
-            print("Error parsing line:", line, e)
-            data = {}
-        done = data.get("done", False)
-        obs = data.get("obs", [0.0] * self.state_dim)
-        reward = data.get("reward", 0)
+        # Append the actions to action.txt.
+        self._append_actions(actions)
+        print("Appended actions to action.txt")
         
-        info = {"turn": self.line_idx}
+        # Wait for a new observation line.
+        obs_line = self._get_next_obs_line()
+        try:
+            obs_data = json.loads(obs_line)
+        except Exception as e:
+            print("Error parsing observation line:", obs_line, e)
+            obs_data = {}
+        obs = obs_data.get("obs", [0.0] * self.state_dim)
+        
+        # Wait for a new reward line.
+        rew_line = self._get_next_reward_line()
+        try:
+            rew_data = json.loads(rew_line)
+        except Exception as e:
+            print("Error parsing reward line:", rew_line, e)
+            rew_data = {}
+        done = rew_data.get("done", False)
+        reward = rew_data.get("reward", 0)
+        
+        info = {"turn": self.obs_idx}
         return [obs for _ in self.agents], [reward for _ in self.agents], done, info
