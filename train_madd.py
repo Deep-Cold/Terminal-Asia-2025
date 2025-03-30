@@ -80,7 +80,7 @@ def main():
         states = env.reset()  # initial observations for each agent
         ep_rewards = np.zeros(len(env.agents))
         p = env.run_single_game()
-        while p.poll() is None:
+        for t in range(episode_length):
             actions = maddpg.take_action(states, explore=True)
             print("got actions from maddpg ----------------------------------------------------")
             next_states, rewards, done, info = env.step(actions)
@@ -94,6 +94,9 @@ def main():
                     maddpg.update(batch, a_i)
                 maddpg.update_all_targets()
             if done:
+                break
+            ret = p.poll()
+            if ret is not None:
                 break
         return_list.append(ep_rewards.tolist())
         if (ep + 1) % 100 == 0:

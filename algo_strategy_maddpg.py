@@ -25,6 +25,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.state_dims = [424, 424, 424]
         self.action_dims = [12, 16, 16]
         self.action_ptr = 0
+        self.first = True
 
         critic_input_dim = sum(self.state_dims) + sum(self.action_dims)
         hidden_dim = 256
@@ -184,19 +185,20 @@ class AlgoStrategy(gamelib.AlgoCore):
 
         if training == True:
             # Reward function of the previous turn 
-            
-            reward = - (self.health_self - game_state.my_health)  + (self.health_enemy - game_state.enemy_health)
-            #clear the used MP
-            self.MP_used = 0
-            self.SP_used =0 
-            self.health_self = game_state.my_health
-            self.health_enemy = game_state.enemy_health
-            # send to the file 
+            if self.first == True:
+                reward = - (self.health_self - game_state.my_health)  + (self.health_enemy - game_state.enemy_health)
+                self.first = False
+                #clear the used MP
+                self.MP_used = 0
+                self.SP_used =0 
+                self.health_self = game_state.my_health
+                self.health_enemy = game_state.enemy_health
+                # send to the file 
 
-            reward_file = os.path.join(os.path.dirname(__file__), "reward.txt")
-            with open(reward_file, "a") as f:
-                f.write(json.dumps({"reward": reward}) + "\n")    
-            gamelib.debug_write("Wrote reward to {}".format(reward_file))
+                reward_file = os.path.join(os.path.dirname(__file__), "reward.txt")
+                with open(reward_file, "a") as f:
+                    f.write(json.dumps({"reward": reward}) + "\n")    
+                gamelib.debug_write("Wrote reward to {}".format(reward_file))
 
 
         state_vector = self.get_state_vector(game_state)
@@ -311,6 +313,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         total_value = 0
 
         SP_this_tern = game_state.get_resource(SP)
+        gamelib.debug_write("SP_this_tern: {}".format(SP_this_tern))
 
         for i in range(8):
             index = i * 2
@@ -322,19 +325,21 @@ class AlgoStrategy(gamelib.AlgoCore):
             total_value += wall_action_values[index] * 3 + wall_action_values[index + 1] * 2
 
         SP_per_unit_cost = SP_this_tern / total_value
+        gamelib.debug_write("SP_per_unit_cost: {}".format(SP_per_unit_cost))
 
         game_map = game_state.game_map
 
         for i in range(8):
             index = i * 2
             number_of_units = int((turret_action_values[index] * SP_per_unit_cost))
+            gamelib.debug_write("number_of_units: {}".format(number_of_units))
             empty_entries = []
             for (ax, ay) in turret_regions[i]:
                 if not game_map[ax, ay]:
                     empty_entries.append([ax, ay])
             random.shuffle(empty_entries)
-            for i in range(min(len(empty_entries), number_of_units)):
-                game_state.attempt_spawn(TURRET, empty_entries[i])
+            for j in range(min(len(empty_entries), number_of_units)):
+                game_state.attempt_spawn(TURRET, empty_entries[j])
                 self.SP_used+=4
                 
             
@@ -349,8 +354,8 @@ class AlgoStrategy(gamelib.AlgoCore):
             
             random.shuffle(update_entries)
                 
-            for i in range(min(len(update_entries), number_of_updates)):
-                game_state.attempt_upgrade(update_entries[i])
+            for j in range(min(len(update_entries), number_of_updates)):
+                game_state.attempt_upgrade(update_entries[j])
                 self.SP_used+=6
             
         for i in range(8):
@@ -361,8 +366,8 @@ class AlgoStrategy(gamelib.AlgoCore):
                 if not game_map[ax, ay]:
                     empty_entries.append([ax, ay])
             random.shuffle(empty_entries)
-            for i in range(min(len(empty_entries), number_of_units)):
-                game_state.attempt_spawn(WALL, empty_entries[i])
+            for j in range(min(len(empty_entries), number_of_units)):
+                game_state.attempt_spawn(WALL, empty_entries[j])
                 self.SP_used+=3
                 
             
@@ -377,8 +382,8 @@ class AlgoStrategy(gamelib.AlgoCore):
             
             random.shuffle(update_entries)
                 
-            for i in range(min(len(update_entries), number_of_updates)):
-                game_state.attempt_upgrade(update_entries[i])
+            for j in range(min(len(update_entries), number_of_updates)):
+                game_state.attempt_upgrade(update_entries[j])
                 self.SP_used+=2
 
 

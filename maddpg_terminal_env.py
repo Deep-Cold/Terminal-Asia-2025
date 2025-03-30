@@ -50,6 +50,7 @@ class TerminalEnv:
         Blocks until file_path exists and contains more than current_idx lines.
         Returns the next unprocessed line.
         """
+        time_start = time.time()
         while True:
             if os.path.exists(file_path):
                 with open(file_path, "r") as f:
@@ -57,6 +58,9 @@ class TerminalEnv:
                 if len(lines) > current_idx:
                     return lines[current_idx].strip()
             time.sleep(0.1)
+            if time.time() - time_start > 15:
+                print(f"Timeout waiting for new line in {file_path}.")
+                break
 
     def _get_next_obs_line(self):
         line = self._wait_for_new_line(self.obs_file, self.obs_idx)
