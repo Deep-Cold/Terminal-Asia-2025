@@ -28,7 +28,7 @@ class ReplayBuffer:
     def size(self):
         return len(self.buffer)
 
-def evaluate(env, maddpg, episode_length=40, n_episode=10):
+def evaluate(env, maddpg, episode_length=100, n_episode=10):
     returns = np.zeros(len(env.agents))
     for _ in range(n_episode):
         states = env.reset()

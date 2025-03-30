@@ -72,17 +72,7 @@ class TerminalEnv:
           - done: True if the JSON contains "done": true or max_turns reached
           - info: Dictionary with extra info (e.g. current turn number)
         """
-        # Wait for the next line in action.txt.
-        line = self._wait_for_new_line()
-        try:
-            data = json.loads(line)
-        except Exception as e:
-            print("Error parsing line:", line, e)
-            data = {}
-        done = data.get("done", False)
-        obs = data.get("obs", [0.0] * self.state_dim)
-        reward = data.get("reward", 0)
-        
+
         # Write a new file "action_output.txt" with the first two agents' actions.
         output_file = os.path.join(self.project_root, "action_output.txt")
         try:
@@ -95,6 +85,17 @@ class TerminalEnv:
             print("Wrote action_output.txt")
         except Exception as e:
             print("Error writing action_output.txt:", e)
+            
+        # Wait for the next line in action.txt.
+        line = self._wait_for_new_line()
+        try:
+            data = json.loads(line)
+        except Exception as e:
+            print("Error parsing line:", line, e)
+            data = {}
+        done = data.get("done", False)
+        obs = data.get("obs", [0.0] * self.state_dim)
+        reward = data.get("reward", 0)
         
         info = {"turn": self.line_idx}
         return [obs for _ in self.agents], [reward for _ in self.agents], done, info
