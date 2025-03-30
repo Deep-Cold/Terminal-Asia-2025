@@ -37,9 +37,9 @@ class TerminalEnv:
         and resets the internal pointers.
         Returns initial observations (here, placeholder zero vectors) for each agent.
         """
-        # for f in [self.obs_file, self.reward_file, self.action_file]:
-        #     if os.path.exists(f):
-        #         os.remove(f)
+        for f in [self.obs_file, self.reward_file, self.action_file]:
+            with open(f, "w") as file:
+                file.write("")
         self.obs_idx = 0
         self.rew_idx = 0
         self.action_idx = 0
