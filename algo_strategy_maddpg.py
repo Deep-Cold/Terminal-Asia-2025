@@ -310,11 +310,27 @@ class AlgoStrategy(gamelib.AlgoCore):
                         [(20, 11), (21, 11), (22, 11), (22, 12)],
                         [(23, 13), (24, 13), (25, 13), (26, 13), (27, 13)]]
         
+        # support_regions = [(12, 2), (15, 2), (10, 4), (17, 4), (8, 6), (19, 6)]
+        support_regions = [(12, 2), (15, 2), (10, 4), (17, 4)]
         total_value = 0
 
         SP_this_tern = game_state.get_resource(SP)
         gamelib.debug_write("SP_this_tern: {}".format(SP_this_tern))
 
+        flag = False
+        for (ax, ay) in support_regions:
+            if not game_map[ax, ay]:
+                game_state.attempt_spawn(SUPPORT, [ax, ay])
+                flag = True
+                break
+            if not game_map[ax, ay][0].upgraded:
+                game_state.attempt_upgrade(SUPPORT, [ax, ay])
+                flag = True
+                break
+
+        if flag:
+            SP -= 2
+            
         for i in range(8):
             index = i * 2
             turret_action_values[index] = max(min(turret_action_values[index], 1), 0)
