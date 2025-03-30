@@ -22,7 +22,7 @@ class TerminalEnv:
         self.max_turns = max_turns
         self.agents = [0, 1, 2]
         self.obs_file = os.path.join(self.project_root, "python-algo", "observation.txt")
-        self.reward_file = os.path.join(self.project_root, "python-algo", "rewards.txt")
+        self.reward_file = os.path.join(self.project_root, "python-algo", "reward.txt")
         self.action_file = os.path.join(self.project_root, "python-algo", "action.txt")
         self.obs_idx = 0
         self.rew_idx = 0
