@@ -186,8 +186,9 @@ class AlgoStrategy(gamelib.AlgoCore):
         if training == True:
             # Reward function of the previous turn 
             if self.first == True:
-                reward = - (self.health_self - game_state.my_health)  + (self.health_enemy - game_state.enemy_health)
                 self.first = False
+            else:
+                reward = - (self.health_self - game_state.my_health)  + (self.health_enemy - game_state.enemy_health)
                 #clear the used MP
                 self.MP_used = 0
                 self.SP_used =0 

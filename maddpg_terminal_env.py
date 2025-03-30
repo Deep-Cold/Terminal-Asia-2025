@@ -29,6 +29,7 @@ class TerminalEnv:
         self.action_idx = 0
         self.algo1 = os.path.join(self.project_root, "python-algo", "run.sh")
         self.algo2 = os.path.join(self.project_root, "python-algo", "run1.sh")
+        self.first = True
 
     def reset(self):
         """
@@ -43,6 +44,7 @@ class TerminalEnv:
         self.obs_idx = 0
         self.rew_idx = 0
         self.action_idx = 0
+        self.first = True
         return [[0.0] * self.state_dim for _ in self.agents]
 
     def _wait_for_new_line(self, file_path, current_idx):
@@ -58,7 +60,7 @@ class TerminalEnv:
                 if len(lines) > current_idx:
                     return lines[current_idx].strip()
             time.sleep(0.1)
-            if time.time() - time_start > 15:
+            if time.time() - time_start > 5:
                 print(f"Timeout waiting for new line in {file_path}.")
                 break
 
@@ -109,7 +111,19 @@ class TerminalEnv:
           - done: Boolean flag (from the rewards file or if max_turns reached).
           - info: A dictionary with extra information (e.g. current turn number).
         """
-        
+        reward = 0
+        if self.first == True:
+            self.first = False
+        else:
+            # Wait for a new reward line.
+            rew_line = self._get_next_reward_line()
+            try:
+                rew_data = json.loads(rew_line)
+            except Exception as e:
+                print("Error parsing reward line:", rew_line, e)
+                rew_data = {}
+            reward = rew_data.get("reward", 0)
+
         # Wait for a new observation line.
         obs_line = self._get_next_obs_line()
         try:
@@ -122,16 +136,7 @@ class TerminalEnv:
         # Append the actions to action.txt.
         self._append_actions(actions)
         print("Appended actions to action.txt")
-        
-        # Wait for a new reward line.
-        rew_line = self._get_next_reward_line()
-        try:
-            rew_data = json.loads(rew_line)
-        except Exception as e:
-            print("Error parsing reward line:", rew_line, e)
-            rew_data = {}
-        done = rew_data.get("done", False)
-        reward = rew_data.get("reward", 0)
-        
+    
+        done = False
         info = self.obs_idx
         return [obs for _ in self.agents], [reward for _ in self.agents], done, info
