@@ -188,7 +188,12 @@ class AlgoStrategy(gamelib.AlgoCore):
             if self.first == True:
                 self.first = False
             else:
-                reward = - (self.health_self - game_state.my_health)  + (self.health_enemy - game_state.enemy_health)
+                reward_turret = - (self.health_self - game_state.my_health) - game_state.get_resource(SP) + self.SP_used * 2
+                reward_attack = (self.health_enemy - game_state.enemy_health)
+                multiplier = game_state.my_health - game_state.enemy_health
+
+                reward = reward_turret + 2 * reward_attack + game_state.turn_number + multiplier * 2
+
                 #clear the used MP
                 self.MP_used = 0
                 self.SP_used =0 

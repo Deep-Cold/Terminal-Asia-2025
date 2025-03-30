@@ -33,9 +33,12 @@ def evaluate(env, maddpg, episode_length=100, n_episode=10):
     for _ in range(n_episode):
         states = env.reset()
         ep_return = np.zeros(len(env.agents))
+        p = env.run_single_game()
+
         for t in range(episode_length):
             actions = maddpg.take_action(states, explore=False)
             states, rewards, done, info = env.step(actions)
+            print(f" Step {t+1}, Rewards: {rewards}, Done: {done} Eval fn")
             ep_return += np.array(rewards)
             if done:
                 break
@@ -79,29 +82,31 @@ def main():
     for ep in range(num_episodes):
         states = env.reset()  # initial observations for each agent
         ep_rewards = np.zeros(len(env.agents))
+        n = 0
         p = env.run_single_game()
         for t in range(episode_length):
-            actions = maddpg.take_action(states, explore=True)
-            print("got actions from maddpg ----------------------------------------------------")
+            actions = maddpg.take_action(states, explore=False)
             next_states, rewards, done, info = env.step(actions)
+            n = info
             replay_buffer.add(states, actions, rewards, next_states, done)
             states = next_states
             ep_rewards += np.array(rewards)
             total_steps += 1
+            print(f"Episode {ep+1}, Step {t+1}, Rewards: {rewards}, Done: {done}")
             if replay_buffer.size >= minimal_size and total_steps % update_interval == 0:
                 batch = replay_buffer.sample(batch_size)
                 for a_i in range(len(env.agents)):
                     maddpg.update(batch, a_i)
                 maddpg.update_all_targets()
             if done:
+                print(f"Episode {ep+1}, Step {t+1}, Done: {done}")
                 break
             ret = p.poll()
             if ret is not None:
                 break
         return_list.append(ep_rewards.tolist())
-        if (ep + 1) % 100 == 0:
-            eval_returns = evaluate(env, maddpg, episode_length=episode_length, n_episode=10)
-            print(f"Episode {ep+1}, Eval Returns: {eval_returns}, Training Returns: {ep_rewards.tolist()}")
+        eval_returns = evaluate(env, maddpg, episode_length=n, n_episode=10)
+        print(f"Episode {ep+1}, Eval Returns: {eval_returns}, Training Returns: {ep_rewards.tolist()}")
     
     # Save each agent's actor model.
     for i, agent in enumerate(maddpg.agents):

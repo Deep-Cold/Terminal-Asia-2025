@@ -27,6 +27,7 @@ class TerminalEnv:
         self.obs_idx = 0
         self.rew_idx = 0
         self.action_idx = 0
+        self.flag = 0
         self.algo1 = os.path.join(self.project_root, "python-algo", "run.sh")
         self.algo2 = os.path.join(self.project_root, "python-algo", "run1.sh")
         self.first = True
@@ -45,6 +46,7 @@ class TerminalEnv:
         self.rew_idx = 0
         self.action_idx = 0
         self.first = True
+        self.flag = 0
         return [[0.0] * self.state_dim for _ in self.agents]
 
     def _wait_for_new_line(self, file_path, current_idx):
@@ -122,6 +124,7 @@ class TerminalEnv:
             except Exception as e:
                 print("Error parsing reward line:", rew_line, e)
                 rew_data = {}
+                self.flag += 1
             reward = rew_data.get("reward", 0)
 
         # Wait for a new observation line.
@@ -131,12 +134,19 @@ class TerminalEnv:
         except Exception as e:
             print("Error parsing observation line:", obs_line, e)
             obs_data = {}
+            self.flag += 1
         obs = obs_data.get("obs", [0.0] * self.state_dim)
 
         # Append the actions to action.txt.
         self._append_actions(actions)
         print("Appended actions to action.txt")
     
+        if self.flag > 2:
+            print("Error in the game. Ending the game.")
+            done = True
+            info = self.obs_idx
+            return [obs for _ in self.agents], [reward for _ in self.agents], done, info
+
         done = False
         info = self.obs_idx
         return [obs for _ in self.agents], [reward for _ in self.agents], done, info
