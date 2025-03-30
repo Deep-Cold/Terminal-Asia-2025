@@ -116,6 +116,26 @@ class AlgoStrategy(gamelib.AlgoCore):
         print(len(vector))
 
         return vector
+    
+    def read_action_file(self, file_path):
+        """
+        Reads the action.txt file and returns a list of action vectors (as lists of floats),
+        one per line.
+        """
+        actions = []
+        with open(file_path, "r") as f:
+            lines = f.readlines()
+        for line in lines:
+            # Remove any extra whitespace/newline and split by comma.
+            parts = line.strip().split(",")
+            try:
+                action_vector = [float(v) for v in parts if v != ""]
+            except Exception as e:
+                action_vector = []
+                print("Error converting line to floats:", line, e)
+            actions.append(action_vector)
+        return actions
+
 
     def on_turn(self, turn_state, training=True):
         """
@@ -128,24 +148,41 @@ class AlgoStrategy(gamelib.AlgoCore):
         and then the turn is submitted.
         """
         game_state = gamelib.GameState(self.config, turn_state)
-        gamelib.debug_write("Turn {} using DDPG strategy".format(game_state.turn_number))
-        
-        # Get live state vector.
-        state_vector = self.get_state_vector(game_state)
-        state_tensor = torch.tensor([state_vector], dtype=torch.float32, device=device)
+        gamelib.debug_write("Turn {} using MADDPG strategy".format(game_state.turn_number))
 
         # Reward function of the previous turn 
         # send to the file 
+
+
+        state_vector = self.get_state_vector(game_state)
+
+        obs_file = os.path.join(os.path.dirname(__file__), "observation.txt")
+        with open(obs_file, "w") as f:
+            json.dump({"obs": state_vector}, f)
+        gamelib.debug_write("Wrote observation to {}".format(obs_file))
 
 
         # from action_output.txt ->read the action
         # with torch.no_grad():
         #     attack_action, turret_action, wall_action = self.agent.actor(state_tensor)
 
-        attack_action_values = attack_action.squeeze(0).tolist()
-        turret_action_values = turret_action.squeeze(0).tolist()
-        wall_action_values = wall_action.squeeze(0).tolist()
-        gamelib.debug_write("MADDPG selected action: {}".format(attack_action_values, turret_action_values, wall_action_values))
+        action_file_path = os.path.join(os.path.dirname(__file__), "action.txt")
+        actions = self.read_action_file(action_file_path)
+        if len(actions) >= 3:
+            attack_action_values = actions[0]
+            turret_action_values = actions[1]
+            wall_action_values = actions[2]
+            gamelib.debug_write("MADDPG selected action: {} {} {}".format(attack_action_values,
+                                                                        turret_action_values,
+                                                                        wall_action_values))
+        else:
+            gamelib.debug_write("Insufficient action vectors in action.txt")
+
+
+        # attack_action_values = attack_action.squeeze(0).tolist()
+        # turret_action_values = turret_action.squeeze(0).tolist()
+        # wall_action_values = wall_action.squeeze(0).tolist()
+        gamelib.debug_write("MADDPG selected action: {}, {}, {}".format(attack_action_values, turret_action_values, wall_action_values))
 
         # --- Attack Mapping ---
         attack_regions = [[(3, 10), (4, 9), (5, 8), (6, 7)], 
@@ -221,7 +258,7 @@ class AlgoStrategy(gamelib.AlgoCore):
             wall_action_values[index] = max(min(wall_action_values[index], 1), 0)
             wall_action_values[index + 1] = max(min(wall_action_values[index + 1], 1), 0)
             total_value += turret_action_values[index] * 4 + turret_action_values[index + 1] * 6
-            total_value += wall_action[index] * 3 + wall_action[index + 1] * 2
+            total_value += wall_action_values[index] * 3 + wall_action_values[index + 1] * 2
 
         SP_per_unit_cost = SP_this_tern / total_value
 
