@@ -122,6 +122,7 @@ class MADDPG:
         self.tau = tau
         self.critic_criterion = torch.nn.MSELoss()
         self.device = device
+        self.env = env
 
     @property
     def policies(self):
@@ -134,7 +135,7 @@ class MADDPG:
     def take_action(self, states, explore):
         states = [
             torch.tensor([states[i]], dtype=torch.float, device=self.device)
-            for i in range(len(env.agents))
+            for i in range(len(self.env.agents))
         ]
         return [
             agent.take_action(state, explore)

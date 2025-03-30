@@ -3,6 +3,9 @@ import os
 import glob
 import json
 import time
+import sys
+import subprocess
+
 
 class TerminalEnv:
     """
@@ -13,17 +16,19 @@ class TerminalEnv:
       
     The environment maintains pointers to process each new line in FIFO order.
     """
-    def __init__(self, project_root, state_dim=424, max_turns=40):
+    def __init__(self, project_root, state_dim=424, max_turns=100):
         self.project_root = project_root
         self.state_dim = state_dim
         self.max_turns = max_turns
         self.agents = [0, 1, 2]
-        self.obs_file = os.path.join(self.project_root, "observation.txt")
-        self.reward_file = os.path.join(self.project_root, "rewards.txt")
-        self.action_file = os.path.join(self.project_root, "action.txt")
+        self.obs_file = os.path.join(self.project_root, "python-algo", "observation.txt")
+        self.reward_file = os.path.join(self.project_root, "python-algo", "rewards.txt")
+        self.action_file = os.path.join(self.project_root, "python-algo", "action.txt")
         self.obs_idx = 0
         self.rew_idx = 0
         self.action_idx = 0
+        self.algo1 = os.path.join(self.project_root, "python-algo", "run.sh")
+        self.algo2 = os.path.join(self.project_root, "python-algo", "run1.sh")
 
     def reset(self):
         """
@@ -32,9 +37,9 @@ class TerminalEnv:
         and resets the internal pointers.
         Returns initial observations (here, placeholder zero vectors) for each agent.
         """
-        for f in [self.obs_file, self.reward_file, self.action_file]:
-            if os.path.exists(f):
-                os.remove(f)
+        # for f in [self.obs_file, self.reward_file, self.action_file]:
+        #     if os.path.exists(f):
+        #         os.remove(f)
         self.obs_idx = 0
         self.rew_idx = 0
         self.action_idx = 0
@@ -73,6 +78,17 @@ class TerminalEnv:
                 f.write(",".join(str(v) for v in agent_action) + "\n")
         self.action_idx += len(actions)
 
+    def run_single_game(self):
+        """
+        Executes the engine command to run a single game.
+        The command is constructed using the project_root and algo1/algo2 paths.
+        """
+        cmd = f"cd {self.project_root} && java -jar engine.jar work {self.algo1} {self.algo2}"
+        print("Executing command:", cmd)
+        p = subprocess.Popen(cmd, shell=True, stdout=sys.stdout, stderr=sys.stderr)
+        p.daemon = 1
+        print("Finished running match")
+
     def step(self, actions):
         """
         Processes one turn.
@@ -88,9 +104,6 @@ class TerminalEnv:
           - done: Boolean flag (from the rewards file or if max_turns reached).
           - info: A dictionary with extra information (e.g. current turn number).
         """
-        # Append the actions to action.txt.
-        self._append_actions(actions)
-        print("Appended actions to action.txt")
         
         # Wait for a new observation line.
         obs_line = self._get_next_obs_line()
@@ -100,6 +113,10 @@ class TerminalEnv:
             print("Error parsing observation line:", obs_line, e)
             obs_data = {}
         obs = obs_data.get("obs", [0.0] * self.state_dim)
+
+        # Append the actions to action.txt.
+        self._append_actions(actions)
+        print("Appended actions to action.txt")
         
         # Wait for a new reward line.
         rew_line = self._get_next_reward_line()

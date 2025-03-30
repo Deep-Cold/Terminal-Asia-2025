@@ -5,7 +5,7 @@ import math
 import json
 import os
 from MADDPG import MADDPG
-from maddpg_terminal_env import send
+import time
 
 # Set up the device for PyTorch.
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -17,16 +17,39 @@ class AlgoStrategy(gamelib.AlgoCore):
         seed = random.randrange(maxsize)
         random.seed(seed)
         gamelib.debug_write("Random seed: {}".format(seed))
+        #define global variables: previous health_self, previous health_enemy, MP used, SP used
+        self.health_self = 30 
+        self.health_enemy = 30 
+        self.MP_used = 0
+        self.SP_used = 0
+        self.state_dims = [424, 424, 424]
+        self.action_dims = [12, 16, 16]
+        self.action_ptr = 0
 
+        critic_input_dim = sum(self.state_dims) + sum(self.action_dims)
+        hidden_dim = 256
+        actor_lr = 1e-4
+        critic_lr = 1e-3
+        gamma = 0.95
+        tau = 0.01
+
+        # MADDPG expects an environment that has an attribute "agents" (a list of agent indices).
+        # We can create a dummy environment for initialization.
+        dummy_env = type("DummyEnv", (), {})()
+        dummy_env.agents = [0, 1, 2]
+        self.agent = MADDPG(dummy_env, device, actor_lr, critic_lr, hidden_dim, self.state_dims, self.action_dims, critic_input_dim, gamma, tau)
+        
 
         # Load updated MADDPG model.
-        model_path = os.path.join(os.path.dirname(__file__), "ddpg_actor_model.pth")
         try:
-            self.agent.actor.load_state_dict(torch.load(model_path, map_location=device))
-            self.agent.actor.eval()
-            gamelib.debug_write("Loaded DDPG model successfully from {}".format(model_path))
+            for i, agent in enumerate(self.agent.agents):
+                model_path = os.path.join(os.path.dirname(__file__), f"ddpg_actor_model_agent{i}.pth")
+                agent.actor.load_state_dict(torch.load(model_path, map_location=device))
+                agent.actor.eval()
+                gamelib.debug_write("Loaded MADDPG model for agent {} successfully from {}".format(i, model_path))
         except Exception as e:
-            gamelib.debug_write("DDPG model not found or failed to load. Using default strategy. Error: {}".format(e))
+            gamelib.debug_write("MADDPG model not found or failed to load. Using default strategy. Error: {}".format(e))
+        
         
         self.scored_on_locations = []
 
@@ -94,7 +117,8 @@ class AlgoStrategy(gamelib.AlgoCore):
         # return a vector of size 420 + 4
         mapping = self.get_index_mapping()
         for i in mapping:
-            unit = game_state.game_map[i[0]][i[1]]
+            unit = game_state.game_map[[i[0], i[1]]]
+
             unit_type = unit.unit_type if unit else None
             health = unit.health if unit else 0
             if unit_type == SUPPORT:
@@ -122,19 +146,27 @@ class AlgoStrategy(gamelib.AlgoCore):
         Reads the action.txt file and returns a list of action vectors (as lists of floats),
         one per line.
         """
-        actions = []
-        with open(file_path, "r") as f:
-            lines = f.readlines()
-        for line in lines:
-            # Remove any extra whitespace/newline and split by comma.
-            parts = line.strip().split(",")
+        while True:
+            if os.path.exists(file_path):
+                with open(file_path, "r") as f:
+                    lines = f.readlines()
+                if len(lines) >= self.action_ptr + 3:
+                    break
+            time.sleep(0.1)  # Sleep briefly before checking again.
+        
+        action_vectors = []
+        for i in range(3):
+            line = lines[self.action_ptr + i].strip()
+            # Split by comma and convert to float.
             try:
-                action_vector = [float(v) for v in parts if v != ""]
+                action_vector = [float(v) for v in line.split(",") if v != ""]
             except Exception as e:
                 action_vector = []
                 print("Error converting line to floats:", line, e)
-            actions.append(action_vector)
-        return actions
+            action_vectors.append(action_vector)
+        
+        self.action_ptr += 3
+        return action_vectors
 
 
     def on_turn(self, turn_state, training=True):
@@ -150,33 +182,59 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state = gamelib.GameState(self.config, turn_state)
         gamelib.debug_write("Turn {} using MADDPG strategy".format(game_state.turn_number))
 
-        # Reward function of the previous turn 
-        # send to the file 
+
+        if training == True:
+            # Reward function of the previous turn 
+            
+            reward = - (self.health_self - game_state.my_health)  + (self.health_enemy - game_state.enemy_health)
+            #clear the used MP
+            self.MP_used = 0
+            self.SP_used =0 
+            self.health_self = game_state.my_health
+            self.health_enemy = game_state.enemy_health
+            # send to the file 
+
+            reward_file = os.path.join(os.path.dirname(__file__), "reward.txt")
+            with open(reward_file, "a") as f:
+                f.write(json.dumps({"reward": reward}) + "\n")    
+            gamelib.debug_write("Wrote reward to {}".format(reward_file))
 
 
         state_vector = self.get_state_vector(game_state)
 
-        obs_file = os.path.join(os.path.dirname(__file__), "observation.txt")
-        with open(obs_file, "w") as f:
-            json.dump({"obs": state_vector}, f)
-        gamelib.debug_write("Wrote observation to {}".format(obs_file))
+        if training == True:
+            obs_file = os.path.join(os.path.dirname(__file__), "observation.txt")
+            with open(obs_file, "a") as f:
+                f.write(json.dumps({"obs": state_vector}) + "\n")
+            gamelib.debug_write("Wrote observation to {}".format(obs_file))
 
 
-        # from action_output.txt ->read the action
-        # with torch.no_grad():
-        #     attack_action, turret_action, wall_action = self.agent.actor(state_tensor)
+            # from action_output.txt ->read the action
+            # with torch.no_grad():
+            #     attack_action, turret_action, wall_action = self.agent.actor(state_tensor)
 
-        action_file_path = os.path.join(os.path.dirname(__file__), "action.txt")
-        actions = self.read_action_file(action_file_path)
-        if len(actions) >= 3:
-            attack_action_values = actions[0]
-            turret_action_values = actions[1]
-            wall_action_values = actions[2]
-            gamelib.debug_write("MADDPG selected action: {} {} {}".format(attack_action_values,
-                                                                        turret_action_values,
-                                                                        wall_action_values))
+            action_file_path = os.path.join(os.path.dirname(__file__), "action.txt")
+            actions = self.read_action_file(action_file_path)
+            if len(actions) >= 3:
+                attack_action_values = actions[0]
+                turret_action_values = actions[1]
+                wall_action_values = actions[2]
+                gamelib.debug_write("MADDPG selected action: {} {} {}".format(attack_action_values,
+                                                                            turret_action_values,
+                                                                            wall_action_values))
+            else:
+                gamelib.debug_write("Insufficient action vectors in action.txt")
+
         else:
-            gamelib.debug_write("Insufficient action vectors in action.txt")
+            state_tensor = torch.tensor([state_vector], dtype=torch.float32, device=device)
+            with torch.no_grad():
+                attack_action, turret_action, wall_action = self.agent.take_action(state_tensor, False)
+            attack_action_values = attack_action.squeeze(0).tolist()
+            turret_action_values = turret_action.squeeze(0).tolist()
+            wall_action_values = wall_action.squeeze(0).tolist()
+            gamelib.debug_write("MADDPG selected action: {} {} {}".format(attack_action_values,
+                                                                            turret_action_values,
+                                                                            wall_action_values))
 
 
         # attack_action_values = attack_action.squeeze(0).tolist()
@@ -191,6 +249,8 @@ class AlgoStrategy(gamelib.AlgoCore):
                           [(14, 0), (15, 1), (16, 2), (17, 3)], 
                           [(18, 4), (19, 5), (20, 6)], 
                           [(21, 7), (22, 8), (23, 9), (24, 10)]]
+        
+        attack_costs = [1, 5, 2]
         
         total_unit_number_cost = 0
 
@@ -220,11 +280,13 @@ class AlgoStrategy(gamelib.AlgoCore):
             ax, ay = random.choice(attack_region)
 
             attack_action_values[unit_number_index] = max(min(attack_action_values[unit_number_index], 1), 0)
-            number_of_units = int((attack_action_values[unit_number_index] * MP_per_unit_cost) // unit_attack["cost"][1])
+            number_of_units = int((attack_action_values[unit_number_index] * MP_per_unit_cost) // attack_costs[attack_unit_type - 1])
             
             gamelib.debug_write("Spawning attack unit {} at [{},{}]".format(unit_attack, ax, ay))
             for _ in range(number_of_units):
                 game_state.attempt_spawn(unit_attack, [ax, ay])
+                self.MP_used+= attack_costs[attack_unit_type - 1]
+
 
 
         # --- Turret Mapping ---
@@ -254,7 +316,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         for i in range(8):
             index = i * 2
             turret_action_values[index] = max(min(turret_action_values[index], 1), 0)
-            turret_action_values[index + 1] = max(min(turret_action_values[index + 1]), 0)
+            turret_action_values[index + 1] = max(min(turret_action_values[index + 1], 1), 0)
             wall_action_values[index] = max(min(wall_action_values[index], 1), 0)
             wall_action_values[index + 1] = max(min(wall_action_values[index + 1], 1), 0)
             total_value += turret_action_values[index] * 4 + turret_action_values[index + 1] * 6
@@ -275,6 +337,7 @@ class AlgoStrategy(gamelib.AlgoCore):
             for i in range(min(len(empty_entries), number_of_units)):
                 gamelib.debug_write("Spawning defense unit {} at [{},{}]".format(TURRET, i[0], i[1]))
                 game_state.attempt_spawn(TURRET, empty_entries[i])
+                self.SP_used+=4
                 
             
             number_of_updates = int((turret_action_values[index + 1] * SP_per_unit_cost))
@@ -289,6 +352,7 @@ class AlgoStrategy(gamelib.AlgoCore):
             for i in range(min(len(update_entries), number_of_updates)):
                 gamelib.debug_write("Upgrade defense unit {} at [{},{}]".format(TURRET, i[0], i[1]))
                 game_state.attempt_upgrade(update_entries[i])
+                self.SP_used+=6
             
         for i in range(8):
             index = i * 2
@@ -301,6 +365,7 @@ class AlgoStrategy(gamelib.AlgoCore):
             for i in range(min(len(empty_entries), number_of_units)):
                 gamelib.debug_write("Spawning defense unit {} at [{},{}]".format(WALL, i[0], i[1]))
                 game_state.attempt_spawn(WALL, empty_entries[i])
+                self.SP_used+=3
                 
             
             number_of_updates = int((wall_action_values[index + 1] * SP_per_unit_cost))
@@ -315,6 +380,7 @@ class AlgoStrategy(gamelib.AlgoCore):
             for i in range(min(len(update_entries), number_of_updates)):
                 gamelib.debug_write("Upgrade defense unit {} at [{},{}]".format(WALL, i[0], i[1]))
                 game_state.attempt_upgrade(update_entries[i])
+                self.SP_used+=2
 
 
         game_state.submit_turn()

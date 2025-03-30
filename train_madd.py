@@ -57,7 +57,7 @@ def main():
     env.agents = [0, 1, 2]
     state_dims = [env.state_dim for _ in env.agents]
     # For example, the action dimensions for your three agents.
-    action_dims = [12, 10, 5]  
+    action_dims = [12, 16, 16]  
     critic_input_dim = sum(state_dims) + sum(action_dims)
     hidden_dim = 256
     actor_lr = 1e-4
@@ -72,18 +72,18 @@ def main():
     minimal_size = 4000
     update_interval = 100
     total_steps = 0
-    num_episodes = 5000
+    num_episodes = 500
     episode_length = env.max_turns  # turns per episode
     return_list = []
     
     for ep in range(num_episodes):
         states = env.reset()  # initial observations for each agent
         ep_rewards = np.zeros(len(env.agents))
+        env.run_single_game()
         for t in range(episode_length):
             # Get actions from the MADDPG agent.
             actions = maddpg.take_action(states, explore=True)
-            # Wait for the engine (or algo_strategy) to write a new line to action.txt,
-            # then get the observation, reward, done flag, and info.
+            print("got actions from maddpg ----------------------------------------------------")
             next_states, rewards, done, info = env.step(actions)
             replay_buffer.add(states, actions, rewards, next_states, done)
             states = next_states
