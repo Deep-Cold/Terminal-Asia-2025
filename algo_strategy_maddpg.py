@@ -119,14 +119,14 @@ class AlgoStrategy(gamelib.AlgoCore):
         for i in mapping:
             unit = game_state.game_map[[i[0], i[1]]]
 
-            unit_type = unit.unit_type if unit else None
-            health = unit.health if unit else 0
+            unit_type = unit[0].unit_type if unit else None
+            health = unit[0].health if unit else 0
             if unit_type == SUPPORT:
                 vector.append(health)
             elif unit_type == TURRET:
                 vector.append(health + unit_max_health[SUPPORT])
             elif unit_type == WALL:
-                if unit.upgraded:
+                if unit[0].upgraded:
                     vector.append(health + unit_max_health[SUPPORT] + unit_max_health[TURRET] + unit_max_health[WALL])
                 else:
                     vector.append(health + unit_max_health[SUPPORT] + unit_max_health[TURRET])
@@ -137,7 +137,6 @@ class AlgoStrategy(gamelib.AlgoCore):
         vector.append(game_state.get_resource(SP))
         vector.append(game_state.my_health)
         vector.append(game_state.enemy_health)
-        print(len(vector))
 
         return vector
     
@@ -335,7 +334,6 @@ class AlgoStrategy(gamelib.AlgoCore):
                     empty_entries.append([ax, ay])
             random.shuffle(empty_entries)
             for i in range(min(len(empty_entries), number_of_units)):
-                gamelib.debug_write("Spawning defense unit {} at [{},{}]".format(TURRET, i[0], i[1]))
                 game_state.attempt_spawn(TURRET, empty_entries[i])
                 self.SP_used+=4
                 
@@ -343,14 +341,15 @@ class AlgoStrategy(gamelib.AlgoCore):
             number_of_updates = int((turret_action_values[index + 1] * SP_per_unit_cost))
             update_entries = []
             for (ax, ay) in turret_regions[i]:
-                obj = game_map[ax, ay]
+                if not game_map[ax, ay]:
+                    continue
+                obj = game_map[ax, ay][0]
                 if obj and (not obj.upgraded):
                     update_entries.append([ax, ay])
             
             random.shuffle(update_entries)
                 
             for i in range(min(len(update_entries), number_of_updates)):
-                gamelib.debug_write("Upgrade defense unit {} at [{},{}]".format(TURRET, i[0], i[1]))
                 game_state.attempt_upgrade(update_entries[i])
                 self.SP_used+=6
             
@@ -363,7 +362,6 @@ class AlgoStrategy(gamelib.AlgoCore):
                     empty_entries.append([ax, ay])
             random.shuffle(empty_entries)
             for i in range(min(len(empty_entries), number_of_units)):
-                gamelib.debug_write("Spawning defense unit {} at [{},{}]".format(WALL, i[0], i[1]))
                 game_state.attempt_spawn(WALL, empty_entries[i])
                 self.SP_used+=3
                 
@@ -371,14 +369,15 @@ class AlgoStrategy(gamelib.AlgoCore):
             number_of_updates = int((wall_action_values[index + 1] * SP_per_unit_cost))
             update_entries = []
             for (ax, ay) in wall_regions[i]:
-                obj = game_map[ax, ay]
+                if not game_map[ax, ay]:
+                    continue
+                obj = game_map[ax, ay][0]
                 if obj and (not obj.upgraded):
                     update_entries.append([ax, ay])
             
             random.shuffle(update_entries)
                 
             for i in range(min(len(update_entries), number_of_updates)):
-                gamelib.debug_write("Upgrade defense unit {} at [{},{}]".format(WALL, i[0], i[1]))
                 game_state.attempt_upgrade(update_entries[i])
                 self.SP_used+=2
 

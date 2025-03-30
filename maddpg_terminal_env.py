@@ -88,6 +88,7 @@ class TerminalEnv:
         p = subprocess.Popen(cmd, shell=True, stdout=sys.stdout, stderr=sys.stderr)
         p.daemon = 1
         print("Finished running match")
+        return p
 
     def step(self, actions):
         """

@@ -79,9 +79,8 @@ def main():
     for ep in range(num_episodes):
         states = env.reset()  # initial observations for each agent
         ep_rewards = np.zeros(len(env.agents))
-        env.run_single_game()
-        for t in range(episode_length):
-            # Get actions from the MADDPG agent.
+        p = env.run_single_game()
+        while p.poll() is None:
             actions = maddpg.take_action(states, explore=True)
             print("got actions from maddpg ----------------------------------------------------")
             next_states, rewards, done, info = env.step(actions)
