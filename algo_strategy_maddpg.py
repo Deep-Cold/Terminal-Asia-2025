@@ -4,7 +4,8 @@ import random
 import math
 import json
 import os
-from MADDPG import MADDPG  # updated MADDPG agent
+from MADDPG import MADDPG
+from maddpg_terminal_env import send
 
 # Set up the device for PyTorch.
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -124,7 +125,7 @@ class AlgoStrategy(gamelib.AlgoCore):
 
         return vector
 
-    def on_turn(self, turn_state):
+    def on_turn(self, turn_state, training=True):
         """
         Called every turn with the current turn's state.
         Extracts a live observation vector from the board state, uses the DDPG actor
@@ -140,8 +141,9 @@ class AlgoStrategy(gamelib.AlgoCore):
         # Get live state vector.
         state_vector = self.get_state_vector(game_state)
         state_tensor = torch.tensor([state_vector], dtype=torch.float32, device=device)
+
+
         
-        # Select a 5-dimensional action.
         with torch.no_grad():
             attack_action, turret_action, wall_action = self.agent.actor(state_tensor)
         attack_action_values = attack_action.squeeze(0).tolist()
@@ -282,54 +284,6 @@ class AlgoStrategy(gamelib.AlgoCore):
                 game_state.attempt_upgrade(update_entries[i])
 
 
-
-        # Component 2: Defence unit type.
-        defence_unit_type = int(round(((action_values[2] + 1) / 2) * 2))
-        defence_unit_type = max(0, min(2, defence_unit_type))
-        
-        # Component 3: Defence x coordinate in [0,27].
-        dx = int(round(((action_values[3] + 1) / 2) * 27))
-        dx = max(0, min(27, dx))
-        
-        # Component 4: Defence y coordinate in [0,13].
-        dy = int(round(((action_values[4] + 1) / 2) * 13))
-        dy = max(0, min(13, dy))
-        
-        # Write two lines to the action file.
-        action_file = os.path.join(os.path.dirname(__file__), "action.txt")
-        try:
-            with open(action_file, "w") as f:
-                # First line: attack command.
-                f.write(f"{attack_unit_type},{ax},{ay}\n")
-                # Second line: defence command.
-                f.write(f"{defence_unit_type},{dx},{dy}")
-            gamelib.debug_write("Action written to file: {} -> Attack: {0},{1},{2} | Defence: {3},{4},{5}".format(
-                action_file, attack_unit_type, ax, ay, defence_unit_type, dx, dy))
-        except Exception as e:
-            gamelib.debug_write("Error writing action file: " + str(e))
-        
-        # Spawn the corresponding units immediately.
-        # For attack units:
-        if attack_unit_type == 0:
-            unit_attack = SCOUT
-        elif attack_unit_type == 1:
-            unit_attack = DEMOLISHER
-        else:
-            unit_attack = INTERCEPTOR
-        gamelib.debug_write("Spawning attack unit {} at [{},{}]".format(unit_attack, ax, ay))
-        game_state.attempt_spawn(unit_attack, [ax, ay])
-        
-        # For defence structures:
-        if defence_unit_type == 0:
-            unit_defence = WALL
-        elif defence_unit_type == 1:
-            unit_defence = TURRET
-        else:
-            unit_defence = SUPPORT
-        gamelib.debug_write("Spawning defence unit {} at [{},{}]".format(unit_defence, dx, dy))
-        game_state.attempt_spawn(unit_defence, [dx, dy])
-        
-        # Submit turn.
         game_state.submit_turn()
 
 
