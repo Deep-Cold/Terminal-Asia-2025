@@ -111,5 +111,5 @@ class TerminalEnv:
         done = rew_data.get("done", False)
         reward = rew_data.get("reward", 0)
         
-        info = {"turn": self.obs_idx}
+        info = self.obs_idx
         return [obs for _ in self.agents], [reward for _ in self.agents], done, info
