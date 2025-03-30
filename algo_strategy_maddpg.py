@@ -318,6 +318,8 @@ class AlgoStrategy(gamelib.AlgoCore):
         SP_this_tern = game_state.get_resource(SP)
         gamelib.debug_write("SP_this_tern: {}".format(SP_this_tern))
 
+        game_map = game_state.game_map
+
         flag = False
         for (ax, ay) in support_regions:
             if not game_map[ax, ay]:
@@ -325,7 +327,7 @@ class AlgoStrategy(gamelib.AlgoCore):
                 flag = True
                 break
             if not game_map[ax, ay][0].upgraded:
-                game_state.attempt_upgrade(SUPPORT, [ax, ay])
+                game_state.attempt_upgrade([ax, ay])
                 flag = True
                 break
 
@@ -338,13 +340,11 @@ class AlgoStrategy(gamelib.AlgoCore):
             turret_action_values[index + 1] = max(min(turret_action_values[index + 1], 1), 0)
             wall_action_values[index] = max(min(wall_action_values[index], 1), 0)
             wall_action_values[index + 1] = max(min(wall_action_values[index + 1], 1), 0)
-            total_value += turret_action_values[index] * 4 + turret_action_values[index + 1] * 6
-            total_value += wall_action_values[index] * 3 + wall_action_values[index + 1] * 2
+            total_value += turret_action_values[index] * 4 + turret_action_values[index + 1] * 1
+            total_value += wall_action_values[index] * 3 + wall_action_values[index + 1] * 1
 
         SP_per_unit_cost = SP_this_tern / total_value
         gamelib.debug_write("SP_per_unit_cost: {}".format(SP_per_unit_cost))
-
-        game_map = game_state.game_map
 
         for i in range(8):
             index = i * 2
@@ -360,7 +360,7 @@ class AlgoStrategy(gamelib.AlgoCore):
                 self.SP_used+=4
                 
             
-            number_of_updates = int((turret_action_values[index + 1] * SP_per_unit_cost))
+            number_of_updates = int((turret_action_values[index + 1] * SP_per_unit_cost) // 6)
             update_entries = []
             for (ax, ay) in turret_regions[i]:
                 if not game_map[ax, ay]:
@@ -388,7 +388,7 @@ class AlgoStrategy(gamelib.AlgoCore):
                 self.SP_used+=3
                 
             
-            number_of_updates = int((wall_action_values[index + 1] * SP_per_unit_cost))
+            number_of_updates = int((wall_action_values[index + 1] * SP_per_unit_cost) // 2)
             update_entries = []
             for (ax, ay) in wall_regions[i]:
                 if not game_map[ax, ay]:
