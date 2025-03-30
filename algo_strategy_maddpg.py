@@ -330,7 +330,7 @@ class AlgoStrategy(gamelib.AlgoCore):
                 break
 
         if flag:
-            SP -= 2
+            SP_this_tern -= 2
             
         for i in range(8):
             index = i * 2
